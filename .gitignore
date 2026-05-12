@@ -1,0 +1,49 @@
+# --- Node / Vite / TypeScript ---
+node_modules/
+dist/
+build/
+.vite/
+*.tsbuildinfo
+coverage/
+
+# --- Environment & secrets ---
+# Real .env files stay local; commit .env.example instead
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Logs ---
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# --- Editor / IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- macOS / OS junk ---
+.DS_Store
+Thumbs.db
+
+# --- Python (in case any tooling shows up) ---
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# --- Local backups / archives ---
+*.zip
+*.tar.gz
+receptor-intelligence.zip
+
+# --- Supabase local ---
+.supabase/
+
+# --- Vercel ---
+.vercel/

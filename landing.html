@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Receptor Intelligence — Prescribe with mechanism, not pattern-matching</title>
+<meta name="description" content="A clinical decision-support platform for psychiatrists. See receptor-level dysregulation, prescribe with mechanism-grounded reasoning, and let an AI scribe carry the documentation. Pilot opening for solo and small-clinic prescribers." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --bg-soft: #111728;
+    --panel: #161d31;
+    --line: #232c46;
+    --ink: #e7ecf5;
+    --ink-soft: #aab3c8;
+    --ink-dim: #6c7796;
+    --accent: #f5b86b;
+    --accent-soft: #f5b86b22;
+    --teal: #6dd3c0;
+    --rose: #ef6f7d;
+    --azure: #7aa8ff;
+  }
+  html, body { background: var(--bg); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; }
+  .font-display { font-family: 'Fraunces', Georgia, serif; letter-spacing: -0.01em; }
+  .grid-bg {
+    background-image:
+      radial-gradient(ellipse 60% 40% at 50% 0%, rgba(245,184,107,0.10), transparent 60%),
+      radial-gradient(ellipse 40% 30% at 90% 20%, rgba(122,168,255,0.08), transparent 60%),
+      linear-gradient(180deg, #0a0e1a 0%, #0a0e1a 100%);
+  }
+  .hairline { border-color: var(--line); }
+  .panel { background: var(--panel); border: 1px solid var(--line); }
+  .pill { background: var(--accent-soft); color: var(--accent); border: 1px solid #f5b86b55; }
+  .ink-soft { color: var(--ink-soft); }
+  .ink-dim { color: var(--ink-dim); }
+  .accent { color: var(--accent); }
+  .btn-primary {
+    background: var(--accent); color: #1a1305; font-weight: 600;
+    transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+    box-shadow: 0 6px 20px -6px rgba(245,184,107,0.55);
+  }
+  .btn-primary:hover { transform: translateY(-1px); background: #ffc679; }
+  .btn-ghost {
+    border: 1px solid var(--line); color: var(--ink); background: transparent;
+    transition: border-color 120ms ease, background 120ms ease;
+  }
+  .btn-ghost:hover { border-color: var(--accent); background: #f5b86b0a; }
+  /* hex-cell hover */
+  .hex { transition: opacity 250ms ease, transform 200ms ease; cursor: pointer; }
+  .hex:hover { transform: translateY(-1px); }
+  /* simple appear */
+  @keyframes rise { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
+  .rise { animation: rise 600ms ease both; }
+  /* divider dots */
+  .dotline { background-image: radial-gradient(circle, #2a324b 1px, transparent 1px); background-size: 8px 8px; }
+  /* form */
+  input, select { color-scheme: dark; }
+  /* tighten section dividers on small screens */
+  @media (max-width: 640px) {
+    .hide-sm { display: none; }
+  }
+</style>
+</head>
+<body class="grid-bg">
+<div id="root"></div>
+
+<script type="text/babel" data-presets="env,react">
+const { useState, useMemo, useEffect } = React;
+
+/* ---------- Brain map mock data ---------- */
+/* Hex grid of receptor "cells" by region. Values: -3..+3 deviation from baseline. */
+const REGIONS = [
+  { id: 'OFC',     label: 'OFC',      col: 1, row: 0 },
+  { id: 'ACC',     label: 'ACC',      col: 2, row: 0 },
+  { id: 'dlPFC',   label: 'dlPFC',    col: 3, row: 0 },
+  { id: 'vmPFC',   label: 'vmPFC',    col: 0, row: 1 },
+  { id: 'Caudate', label: 'Caudate',  col: 1, row: 1 },
+  { id: 'Putamen', label: 'Putamen',  col: 2, row: 1 },
+  { id: 'vS',      label: 'vStriatum',col: 3, row: 1 },
+  { id: 'Amyg',    label: 'Amygdala', col: 4, row: 1 },
+  { id: 'Hipp',    label: 'Hipp.',    col: 0, row: 2 },
+  { id: 'Raphe',   label: 'Raphe',    col: 1, row: 2 },
+  { id: 'VTA',     label: 'VTA',      col: 2, row: 2 },
+  { id: 'LC',      label: 'LC',       col: 3, row: 2 },
+  { id: 'mPFC',    label: 'mPFC',     col: 4, row: 2 },
+];
+
+/* For the demo: each region has ~4 receptor cells. Layer values:
+   "patient":   patient effective state vs baseline
+   "rx":        coverage from chosen treatment
+   "residual":  what remains after treatment
+*/
+const SYSTEMS = ['5HT', 'DA', 'Glu', 'GABA'];
+
+/* deterministic-ish synthetic patient pattern that looks plausibly OCD */
+function buildCells() {
+  const out = [];
+  REGIONS.forEach((r) => {
+    SYSTEMS.forEach((s, i) => {
+      // synthesize a pattern: OFC/Caudate/vS hyperactive serotonergic+gluta circuit
+      let v = 0;
+      if ((r.id === 'OFC' || r.id === 'ACC') && (s === '5HT' || s === 'Glu')) v = -2;
+      if ((r.id === 'Caudate' || r.id === 'Putamen' || r.id === 'vS') && s === 'DA') v = +2;
+      if (r.id === 'Raphe' && s === '5HT') v = -2;
+      if (r.id === 'Amyg' && s === 'GABA') v = -1;
+      if (r.id === 'dlPFC' && s === 'Glu') v = -1;
+      if (r.id === 'mPFC' && s === '5HT') v = -1;
+      if (r.id === 'Hipp' && s === 'GABA') v = +1;
+      // small jitter for visual texture
+      const jitter = ((r.col * 7 + r.row * 3 + i * 5) % 5) - 2;
+      const patient = Math.max(-3, Math.min(3, v + (jitter > 1 ? 1 : jitter < -1 ? -1 : 0)));
+      // sertraline-like coverage: nudges 5HT toward 0 in OFC/ACC/Raphe; partial Glu in OFC
+      let rx = 0;
+      if (s === '5HT' && (r.id === 'OFC' || r.id === 'ACC' || r.id === 'Raphe' || r.id === 'mPFC')) rx = patient < 0 ? -patient * 0.7 : 0;
+      if (s === 'Glu' && (r.id === 'OFC')) rx = patient < 0 ? -patient * 0.4 : 0;
+      const residual = +(patient + rx).toFixed(2);
+      out.push({ region: r.id, system: s, patient, rx, residual });
+    });
+  });
+  return out;
+}
+
+const CELLS = buildCells();
+
+/* color encoding: red(-) -> neutral -> blue(+), like a heatmap diverging scale */
+function colorFor(v) {
+  // v in [-3, 3]
+  const t = Math.max(-3, Math.min(3, v));
+  if (Math.abs(t) < 0.2) return '#2a3454';
+  // negative -> rose, positive -> azure; magnitude maps to opacity
+  const mag = Math.min(1, Math.abs(t) / 3);
+  if (t < 0) {
+    const a = 0.25 + mag * 0.7;
+    return `rgba(239, 111, 125, ${a.toFixed(2)})`;
+  } else {
+    const a = 0.25 + mag * 0.7;
+    return `rgba(122, 168, 255, ${a.toFixed(2)})`;
+  }
+}
+
+/* Compute hex polygon points for a flat-top hex */
+function hexPoints(cx, cy, r) {
+  const pts = [];
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI / 3) * i;
+    pts.push(`${cx + r * Math.cos(angle)},${cy + r * Math.sin(angle)}`);
+  }
+  return pts.join(' ');
+}
+
+function BrainMap({ layer, onCellClick }) {
+  // 5 cols x 3 rows. Inside each region, a tiny 2x2 of receptor cells.
+  const cellByRegion = useMemo(() => {
+    const m = {};
+    CELLS.forEach((c) => {
+      m[c.region] = m[c.region] || [];
+      m[c.region].push(c);
+    });
+    return m;
+  }, []);
+
+  const W = 720, H = 360;
+  const cellsPerRow = 5;
+  const rows = 3;
+  const padX = 60, padY = 40;
+  const stepX = (W - padX * 2) / (cellsPerRow - 1);
+  const stepY = (H - padY * 2) / (rows - 1);
+  const r = 38; // outer hex radius
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
+      <defs>
+        <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="rgba(245,184,107,0.18)" />
+          <stop offset="100%" stopColor="rgba(245,184,107,0)" />
+        </radialGradient>
+      </defs>
+      <rect x="0" y="0" width={W} height={H} fill="url(#glow)" />
+      {REGIONS.map((reg) => {
+        const cx = padX + reg.col * stepX;
+        const cy = padY + reg.row * stepY;
+        const cells = cellByRegion[reg.id] || [];
+        return (
+          <g key={reg.id} className="hex">
+            {/* Outer hex outline as a region container */}
+            <polygon
+              points={hexPoints(cx, cy, r)}
+              fill="rgba(255,255,255,0.02)"
+              stroke="#2a324b"
+              strokeWidth="1"
+            />
+            {/* inner 4 small hexes for each receptor system */}
+            {cells.map((c, idx) => {
+              const dx = (idx % 2 === 0 ? -12 : 12);
+              const dy = (idx < 2 ? -12 : 12);
+              const v =
+                layer === 'patient' ? c.patient :
+                layer === 'rx' ? -c.rx :    // show coverage as inverse direction
+                layer === 'residual' ? c.residual :
+                c.patient;
+              return (
+                <polygon
+                  key={c.system}
+                  points={hexPoints(cx + dx, cy + dy, 10)}
+                  fill={colorFor(v)}
+                  stroke="#0a0e1a"
+                  strokeWidth="1.5"
+                  onClick={() => onCellClick && onCellClick(c)}
+                >
+                  <title>{`${reg.label} · ${c.system}: ${v.toFixed(2)}`}</title>
+                </polygon>
+              );
+            })}
+            {/* region label */}
+            <text x={cx} y={cy + r + 14} textAnchor="middle" fontSize="10" fill="#8390aa" fontFamily="Inter">
+              {reg.label}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/* ---------- Sections ---------- */
+
+function Nav() {
+  return (
+    <nav className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <polygon points="12,2 22,7 22,17 12,22 2,17 2,7" stroke="#f5b86b" strokeWidth="1.5" />
+          <polygon points="12,7 17,9.5 17,14.5 12,17 7,14.5 7,9.5" fill="#f5b86b" opacity="0.4" />
+        </svg>
+        <span className="font-display text-lg">Receptor Intelligence</span>
+      </div>
+      <div className="hidden sm:flex items-center gap-7 text-sm ink-soft">
+        <a href="#how" className="hover:text-white">How it works</a>
+        <a href="#scribe" className="hover:text-white">AI scribe</a>
+        <a href="#v1" className="hover:text-white">What ships</a>
+        <a href="#pilot" className="hover:text-white">Pilot</a>
+      </div>
+      <a href="#waitlist" className="btn-primary text-sm px-4 py-2 rounded-md">Join the pilot</a>
+    </nav>
+  );
+}
+
+function Hero() {
+  return (
+    <header className="max-w-6xl mx-auto px-6 pt-10 pb-20 grid md:grid-cols-12 gap-10 items-center">
+      <div className="md:col-span-7 rise">
+        <div className="pill inline-flex items-center text-xs px-3 py-1 rounded-full mb-6">
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] mr-2 inline-block"></span>
+          Pilot opening · 1–3 friendly prescribers
+        </div>
+        <h1 className="font-display text-4xl sm:text-5xl md:text-6xl leading-[1.05] mb-6">
+          Prescribe with <span className="accent italic">mechanism</span>,<br/> not pattern-matching.
+        </h1>
+        <p className="text-lg ink-soft max-w-xl mb-8">
+          Receptor Intelligence shows you what's happening in your patient's brain at the receptor
+          level, ranks treatments by mechanistic fit, and lets an AI scribe handle the note —
+          while feeding the same model that's reasoning about the case.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <a href="#waitlist" className="btn-primary px-5 py-3 rounded-md">Apply for the pilot</a>
+          <a href="#how" className="btn-ghost px-5 py-3 rounded-md">See the visit flow</a>
+        </div>
+        <div className="mt-10 flex items-center gap-6 text-xs ink-dim">
+          <span>CDS-exempt decision support</span>
+          <span className="hide-sm">·</span>
+          <span className="hide-sm">HIPAA-aligned (BAA on Whisper + Claude)</span>
+          <span className="hide-sm">·</span>
+          <span className="hide-sm">Evidence visible at every recommendation</span>
+        </div>
+      </div>
+      <div className="md:col-span-5 rise">
+        <HeroPanel />
+      </div>
+    </header>
+  );
+}
+
+function HeroPanel() {
+  const [layer, setLayer] = useState('patient');
+  const [picked, setPicked] = useState(null);
+  return (
+    <div className="panel rounded-xl p-4 sm:p-5">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-xs ink-dim uppercase tracking-wider">Patient · OCD, severe (Y-BOCS 28)</div>
+        <div className="flex gap-1 text-[11px]">
+          {['patient','rx','residual'].map((k) => (
+            <button
+              key={k}
+              onClick={() => setLayer(k)}
+              className={`px-2 py-1 rounded-md border ${layer===k?'border-[var(--accent)] text-[var(--accent)]':'hairline ink-soft'}`}>
+              {k === 'patient' ? 'Effective' : k === 'rx' ? 'Coverage' : 'Residual'}
+            </button>
+          ))}
+        </div>
+      </div>
+      <BrainMap layer={layer} onCellClick={setPicked} />
+      <div className="mt-2 flex items-center justify-between text-[11px] ink-dim">
+        <span>← reduced</span>
+        <div className="flex items-center gap-1">
+          <span className="w-3 h-3 rounded-sm" style={{background:'rgba(239,111,125,0.7)'}}></span>
+          <span className="w-3 h-3 rounded-sm" style={{background:'#2a3454'}}></span>
+          <span className="w-3 h-3 rounded-sm" style={{background:'rgba(122,168,255,0.7)'}}></span>
+        </div>
+        <span>increased →</span>
+      </div>
+      <div className="mt-4 border-t hairline pt-3 text-xs ink-soft min-h-[3.25rem]">
+        {picked ? (
+          <div>
+            <span className="text-white">{picked.region} · {picked.system}</span>
+            <span className="ink-dim"> &nbsp;·&nbsp; effective </span>
+            <span className="text-white">{picked.patient.toFixed(2)}</span>
+            <span className="ink-dim"> &nbsp;·&nbsp; residual after Rx </span>
+            <span className="text-white">{picked.residual.toFixed(2)}</span>
+            <div className="mt-1 ink-dim italic">Click any cell for evidence trail.</div>
+          </div>
+        ) : (
+          <span className="ink-dim">Click a hex to inspect a cell.</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* The pain it removes */
+function PainKiller() {
+  return (
+    <section id="scribe" className="max-w-6xl mx-auto px-6 py-20">
+      <div className="grid md:grid-cols-12 gap-10 items-start">
+        <div className="md:col-span-5">
+          <div className="text-xs uppercase tracking-widest accent mb-3">The scribe that thinks</div>
+          <h2 className="font-display text-3xl md:text-4xl leading-tight mb-5">
+            A note is a side effect.
+          </h2>
+          <p className="ink-soft mb-4">
+            Other AI scribes generate documentation. Ours captures the visit, transcribes via Whisper,
+            and extracts <em>structured clinical observations</em> as cell-level modifiers — each one tied to
+            the verbatim quote that justified it.
+          </p>
+          <p className="ink-soft mb-4">
+            At end of visit you see a queue: approve, edit, or reject each proposal. Approved
+            modifiers update the brain map live. The note is generated from the same structured trail
+            — never the other way around.
+          </p>
+          <p className="ink-dim text-sm">
+            AI proposes. Clinician commits. Audit log captures both sides of every decision.
+          </p>
+        </div>
+        <div className="md:col-span-7">
+          <ScribeMock />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ScribeMock() {
+  const items = [
+    {
+      qid: 'p1',
+      proposal: 'Doubt-spectrum subsystem · +1 (worsening)',
+      quote: '"...checking the lock six, seven times now, even after I know I locked it."',
+      conf: 0.86,
+    },
+    {
+      qid: 'p2',
+      proposal: 'Habit-spectrum subsystem · +1',
+      quote: '"It\'s automatic — I don\'t even decide to do it anymore."',
+      conf: 0.81,
+    },
+    {
+      qid: 'p3',
+      proposal: 'Family history TS → CIN density (Caudate) · -1',
+      quote: '"...my brother had tics as a kid, never diagnosed but obvious."',
+      conf: 0.74,
+    },
+  ];
+  const [state, setState] = useState({});
+  const set = (id, v) => setState((s) => ({ ...s, [id]: v }));
+  return (
+    <div className="panel rounded-xl">
+      <div className="flex items-center justify-between px-4 py-3 border-b hairline">
+        <div className="flex items-center gap-2 text-xs ink-soft">
+          <span className="w-2 h-2 rounded-full bg-[var(--teal)] animate-pulse"></span>
+          Visit 0:42:17 · transcript captured
+        </div>
+        <div className="text-xs ink-dim">3 proposals pending review</div>
+      </div>
+      <div className="divide-y" style={{borderColor:'var(--line)'}}>
+        {items.map((p) => {
+          const s = state[p.qid];
+          return (
+            <div key={p.qid} className="p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-sm">{p.proposal}</div>
+                  <div className="text-xs ink-dim mt-1">{p.quote}</div>
+                  <div className="text-[11px] ink-dim mt-2">confidence {p.conf.toFixed(2)}</div>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  {!s && (
+                    <>
+                      <button onClick={() => set(p.qid,'approved')} className="text-xs px-3 py-1 rounded-md" style={{background:'#214f3e', color:'#cbe9d9'}}>Approve</button>
+                      <button onClick={() => set(p.qid,'edited')} className="text-xs px-3 py-1 rounded-md btn-ghost">Edit</button>
+                      <button onClick={() => set(p.qid,'rejected')} className="text-xs px-3 py-1 rounded-md" style={{background:'#3b1f25', color:'#f4c0c6'}}>Reject</button>
+                    </>
+                  )}
+                  {s && (
+                    <span className="text-xs px-3 py-1 rounded-md" style={{
+                      background: s==='approved'?'#214f3e':s==='rejected'?'#3b1f25':'#3a3424',
+                      color: s==='approved'?'#cbe9d9':s==='rejected'?'#f4c0c6':'#f5dca0'
+                    }}>{s}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="px-4 py-3 border-t hairline text-xs ink-dim flex items-center justify-between">
+        <span>All proposals link to a substring of the verbatim transcript.</span>
+        <span className="accent">Audit logged</span>
+      </div>
+    </div>
+  );
+}
+
+/* How it works — the canonical flow */
+function HowItWorks() {
+  const steps = [
+    {
+      n: '01',
+      title: 'Validated intake',
+      body: 'Y-BOCS, PHQ-9, GAD-7, MADRS — pre-visit on the patient\'s phone via secure link, or on a tablet in clinic.',
+    },
+    {
+      n: '02',
+      title: 'Brain map renders',
+      body: 'Receptor-level deviation from healthy baseline, region by region. Subsystem heatmap surfaces the functional axes most dysregulated.',
+    },
+    {
+      n: '03',
+      title: 'Ranked treatment fit',
+      body: 'Specific drugs ranked by mechanism overlap with this patient\'s pattern. Each row shows the cells targeted and the evidence behind them.',
+    },
+    {
+      n: '04',
+      title: 'Conversation, captured',
+      body: 'AI scribe transcribes the visit and extracts structured proposals tied to verbatim quotes. You approve, edit, or reject. The map updates live.',
+    },
+    {
+      n: '05',
+      title: 'Predicted post-Rx layer',
+      body: 'Click "Prescribe." See how the brain map is expected to look at 6–8 weeks. Decide if augmentation is warranted before the patient leaves.',
+    },
+    {
+      n: '06',
+      title: 'Validated at follow-up',
+      body: 'Patient retests. Predicted vs. observed gets stored. Over time, predictions sharpen — and eventually personalize per patient.',
+    },
+  ];
+  return (
+    <section id="how" className="max-w-6xl mx-auto px-6 py-20">
+      <div className="text-xs uppercase tracking-widest accent mb-3">The canonical visit</div>
+      <h2 className="font-display text-3xl md:text-4xl leading-tight mb-12 max-w-3xl">
+        Six steps from a questionnaire score to a mechanism-grounded prescription — and a closed feedback loop you've never had before.
+      </h2>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-px panel rounded-xl overflow-hidden">
+        {steps.map((s) => (
+          <div key={s.n} className="p-6" style={{background:'var(--bg-soft)'}}>
+            <div className="text-xs ink-dim mb-2">{s.n}</div>
+            <div className="font-display text-xl mb-2">{s.title}</div>
+            <p className="ink-soft text-sm leading-relaxed">{s.body}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* What ships in v1 */
+function V1() {
+  const groups = [
+    {
+      head: 'Reasoning surface',
+      items: [
+        'Brain heatmap with multi-layer stacking (effective / coverage / residual / predicted)',
+        'Subsystem heatmap and ranked residual gap list',
+        'Treatment fit table with evidence at point of decision',
+        'Predicted post-treatment overlay (6–8 week horizon)',
+        'Follow-up predicted-vs-observed comparison',
+      ],
+    },
+    {
+      head: 'Conversation layer',
+      items: [
+        'Audio capture during visit (start / pause / end)',
+        'Whisper transcription, encrypted at rest',
+        'Claude structured extraction → modifier proposal queue',
+        'Per-proposal approve / edit / reject with quote-linked evidence',
+        'Manual modifier entry alongside the scribe',
+      ],
+    },
+    {
+      head: 'Clinic foundation',
+      items: [
+        'Provider auth with MFA, single-clinic deployment',
+        'Multi-disorder patient profiles (OCD, MDD, GAD in v1)',
+        'Patient-facing intake mini-app at /intake/:token',
+        'Patient-facing post-visit summary, plain language',
+        'Audit trail viewer over every action',
+      ],
+    },
+  ];
+  return (
+    <section id="v1" className="max-w-6xl mx-auto px-6 py-20">
+      <div className="text-xs uppercase tracking-widest accent mb-3">What ships in v1</div>
+      <h2 className="font-display text-3xl md:text-4xl leading-tight mb-12 max-w-3xl">
+        Not a demo. A platform a psychiatrist can run their practice on.
+      </h2>
+      <div className="grid md:grid-cols-3 gap-6">
+        {groups.map((g) => (
+          <div key={g.head} className="panel rounded-xl p-6">
+            <div className="font-display text-xl mb-4">{g.head}</div>
+            <ul className="space-y-3 text-sm ink-soft">
+              {g.items.map((it, i) => (
+                <li key={i} className="flex items-start gap-3">
+                  <span className="mt-1 w-1.5 h-1.5 rounded-full bg-[var(--accent)] shrink-0"></span>
+                  <span>{it}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+      <div className="mt-10 text-xs ink-dim max-w-3xl">
+        v1 covers Y-BOCS, PHQ-9, GAD-7, and MADRS, with three disorder templates and ten first-line drug
+        coverage profiles: sertraline, fluoxetine, escitalopram, venlafaxine, duloxetine, bupropion,
+        lamotrigine, aripiprazole, clonidine, NAC.
+      </div>
+    </section>
+  );
+}
+
+/* Differentiation block */
+function Why() {
+  const blocks = [
+    {
+      head: 'Mechanism over heuristic',
+      body: 'Every disorder, every patient, every drug expressed in the same data structure: cells keyed on (disorder, region, system, target, site) with deltas from healthy baseline. The recommendation ranking falls out of the math, not a lookup table.',
+    },
+    {
+      head: 'A scribe that\'s part of the model',
+      body: 'Other AI scribes bolt documentation onto the workflow. Ours treats the visit as primary input to the reasoning layer — and the note as a derived artifact of structured, audited observations.',
+    },
+    {
+      head: 'A closed prediction loop',
+      body: 'Every prescription generates a prediction. Every follow-up generates an observation. The prediction-accuracy pair is stored and used to sharpen future estimates — for the field, and eventually for each individual patient.',
+    },
+    {
+      head: 'CDS-exempt by design',
+      body: '21st Century Cures §3060(a)(4): software that surfaces specific recommendations to clinicians, with a basis the clinician can independently review, sits outside FDA device regulation. Every recommendation here traces back to specific cells with specific sources.',
+    },
+  ];
+  return (
+    <section className="max-w-6xl mx-auto px-6 py-20">
+      <div className="text-xs uppercase tracking-widest accent mb-3">Why it works</div>
+      <h2 className="font-display text-3xl md:text-4xl leading-tight mb-12 max-w-3xl">
+        Built for psychiatrists who think mechanistically and want their tools to do the same.
+      </h2>
+      <div className="grid md:grid-cols-2 gap-6">
+        {blocks.map((b) => (
+          <div key={b.head} className="panel rounded-xl p-7">
+            <div className="font-display text-xl mb-3">{b.head}</div>
+            <p className="ink-soft text-sm leading-relaxed">{b.body}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* Pilot details */
+function Pilot() {
+  const list = [
+    { k: 'Who', v: 'Solo or small-clinic psychiatrists / psych NPs in the US. Outpatient practice with a steady mix of OCD, MDD, or GAD presentations.' },
+    { k: 'Commitment', v: 'Use the platform on 2–3 willing patients to start. Weekly 30-min check-in for the first month. Honest feedback on what helps and what doesn\'t.' },
+    { k: 'What you get', v: 'Free use during the pilot. White-glove onboarding. Direct line to the founder. Influence on the product as it matures.' },
+    { k: 'What we ask', v: 'Informed-consent language we provide, signed BAA, and patience for the rough edges that come with v1.' },
+  ];
+  return (
+    <section id="pilot" className="max-w-6xl mx-auto px-6 py-20">
+      <div className="text-xs uppercase tracking-widest accent mb-3">The pilot</div>
+      <h2 className="font-display text-3xl md:text-4xl leading-tight mb-10 max-w-3xl">
+        Three prescribers. Real patients. Honest feedback.
+      </h2>
+      <div className="panel rounded-xl divide-y" style={{borderColor:'var(--line)'}}>
+        {list.map((row) => (
+          <div key={row.k} className="grid sm:grid-cols-12 gap-4 p-6">
+            <div className="sm:col-span-3 text-sm accent">{row.k}</div>
+            <div className="sm:col-span-9 text-sm ink-soft leading-relaxed">{row.v}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* Waitlist form */
+function Waitlist() {
+  const [form, setForm] = useState({ name: '', email: '', practice: '', volume: '50–150', interests: [] });
+  const [status, setStatus] = useState('idle');
+
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const toggle = (val) =>
+    setForm((f) => ({
+      ...f,
+      interests: f.interests.includes(val) ? f.interests.filter((x) => x !== val) : [...f.interests, val],
+    }));
+
+  const submit = (e) => {
+    e.preventDefault();
+    if (!form.email || !form.name) {
+      setStatus('error');
+      return;
+    }
+    // mailto fallback so this works without backend wiring yet
+    const body = encodeURIComponent(
+      `Name: ${form.name}\nEmail: ${form.email}\nPractice: ${form.practice}\nMonthly visits: ${form.volume}\nInterests: ${form.interests.join(', ')}`
+    );
+    const subject = encodeURIComponent('Receptor Intelligence pilot — application');
+    window.location.href = `mailto:rivyyriv@gmail.com?subject=${subject}&body=${body}`;
+    setStatus('sent');
+  };
+
+  return (
+    <section id="waitlist" className="max-w-6xl mx-auto px-6 py-20">
+      <div className="grid md:grid-cols-12 gap-10 items-start">
+        <div className="md:col-span-5">
+          <div className="text-xs uppercase tracking-widest accent mb-3">Apply</div>
+          <h2 className="font-display text-3xl md:text-4xl leading-tight mb-4">Join the pilot.</h2>
+          <p className="ink-soft mb-3">We're inviting one to three solo or small-clinic prescribers into the v1 pilot. Tell us a little about your practice and we'll be in touch within a week.</p>
+          <p className="ink-dim text-xs">We don't share your information. The pilot is bound by a mutual NDA and BAA.</p>
+        </div>
+        <div className="md:col-span-7">
+          <form onSubmit={submit} className="panel rounded-xl p-6 space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <label className="text-xs ink-soft block">
+                Your name
+                <input value={form.name} onChange={(e)=>set('name',e.target.value)} required type="text" className="mt-1 w-full bg-[var(--bg-soft)] border hairline rounded-md px-3 py-2 text-sm text-white" placeholder="Dr. Jane Doe" />
+              </label>
+              <label className="text-xs ink-soft block">
+                Email
+                <input value={form.email} onChange={(e)=>set('email',e.target.value)} required type="email" className="mt-1 w-full bg-[var(--bg-soft)] border hairline rounded-md px-3 py-2 text-sm text-white" placeholder="you@clinic.com" />
+              </label>
+            </div>
+            <label className="text-xs ink-soft block">
+              Practice
+              <input value={form.practice} onChange={(e)=>set('practice',e.target.value)} type="text" className="mt-1 w-full bg-[var(--bg-soft)] border hairline rounded-md px-3 py-2 text-sm text-white" placeholder="Solo outpatient psychiatry, Brooklyn NY" />
+            </label>
+            <label className="text-xs ink-soft block">
+              Monthly outpatient visits
+              <select value={form.volume} onChange={(e)=>set('volume',e.target.value)} className="mt-1 w-full bg-[var(--bg-soft)] border hairline rounded-md px-3 py-2 text-sm text-white">
+                <option>&lt; 50</option>
+                <option>50–150</option>
+                <option>150–300</option>
+                <option>300+</option>
+              </select>
+            </label>
+            <fieldset className="text-xs ink-soft">
+              <div className="mb-2">What interests you most? (pick any)</div>
+              <div className="flex flex-wrap gap-2">
+                {['Brain map / mechanism', 'AI scribe', 'Predicted-vs-observed loop', 'Patient-facing summary'].map((tag) => (
+                  <button key={tag} type="button" onClick={()=>toggle(tag)} className={`text-xs px-3 py-1.5 rounded-full border ${form.interests.includes(tag)?'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent-soft)]':'hairline ink-soft'}`}>
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+            <div className="flex items-center justify-between pt-2">
+              <div className="text-xs ink-dim">
+                {status === 'error' && <span className="text-[var(--rose)]">Name and email are required.</span>}
+                {status === 'sent' && <span className="text-[var(--teal)]">Thanks — your mail client should have opened.</span>}
+              </div>
+              <button type="submit" className="btn-primary px-5 py-2.5 rounded-md text-sm">Apply for the pilot →</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* Footer */
+function Footer() {
+  return (
+    <footer className="border-t hairline mt-12">
+      <div className="max-w-6xl mx-auto px-6 py-10 grid sm:grid-cols-2 gap-6 items-center">
+        <div className="flex items-center gap-2">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <polygon points="12,2 22,7 22,17 12,22 2,17 2,7" stroke="#f5b86b" strokeWidth="1.5" />
+          </svg>
+          <span className="font-display">Receptor Intelligence</span>
+          <span className="ink-dim text-xs ml-3">CDS-exempt decision support · Not a medical device.</span>
+        </div>
+        <div className="text-xs ink-dim sm:text-right">
+          © 2026 · Built for prescribers. Patients always see what their doctor sees, in their language.
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+function App() {
+  return (
+    <div>
+      <Nav />
+      <Hero />
+      <PainKiller />
+      <HowItWorks />
+      <Why />
+      <V1 />
+      <Pilot />
+      <Waitlist />
+      <Footer />
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
