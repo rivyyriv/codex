@@ -112,11 +112,23 @@ Visual: dense, information-rich. Practitioners triage from this screen. No empty
 Multi-step modal:
 
 1. **Demographics** — name, DOB, sex at birth, preferred pronouns, MRN if available.
-2. **Initial assessment context** — chief complaint (free text), provisional diagnosis selection from dropdown of active disorder templates (OCD, MDD, GAD in v1), severity sense ("subclinical / mild / moderate / severe" — sets initial severity bucket per `01-schema-v3.md`).
-3. **Initial questionnaire** — pick which instrument to administer. Defaults based on provisional diagnosis. Provider can administer in-office on tablet OR send a secure pre-visit link to the patient's phone.
+2. **Initial assessment context** — chief complaint (free text), provisional diagnosis selection from dropdown of active disorder templates (OCD, MDD, GAD in v1) *or* "No diagnosis yet — assess only" for undifferentiated patients, severity sense ("subclinical / mild / moderate / severe" — sets initial severity bucket per `01-schema-v3.md`; not required if "No diagnosis yet" is selected).
+3. **Initial questionnaire** — pick which instrument to administer. Defaults based on provisional diagnosis; if "No diagnosis yet," provider chooses from the full instrument list (Y-BOCS, PHQ-9, GAD-7, MADRS) — typically PHQ-9 or GAD-7 as a broad screen. Provider can administer in-office on tablet OR send a secure pre-visit link to the patient's phone.
 4. **Confirm** — review summary, create patient.
 
 After creation, lands on the patient detail screen.
+
+#### Undifferentiated patients ("No diagnosis yet")
+
+When the provider selects "No diagnosis yet — assess only" at intake, the patient is created with `diagnosis_status: undifferentiated` and no `template_refs` attached. The downstream experience differs from a diagnosed patient as follows:
+
+- The brain map renders normally from the questionnaire-derived subsystem modifiers, using the healthy baseline as the only reference. No disorder-attributable layer is available (nothing to attribute to).
+- The brain type is still assigned (types are computed from the cell vector, not from a DSM diagnosis). Type-driven lifestyle, therapy-modality, and supplement recommendations are surfaced as normal.
+- The **treatment fit table for drugs is hidden** until a diagnosis is committed. Without a disorder template, there is no residual to rank drugs against. The space is replaced by a panel reading "Add a provisional diagnosis to surface drug recommendations" with a button to do so.
+- The supplement recommendations from the brain type *are* surfaced (they derive from the type, not from the residual).
+- The provider can commit a provisional diagnosis at any later visit. When they do, the disorder template attaches, the residual recomputes, and the drug table appears.
+
+This is the v1 path for patients who present with symptoms but no clean DSM fit, or where the provider needs more visits to differentiate. The brain type layer is what makes this path useful — without it, an undifferentiated patient would see only a baseline-relative brain map with no actionable recommendations.
 
 ### 4. Patient detail (the central screen)
 
