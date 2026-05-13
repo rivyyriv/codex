@@ -224,6 +224,21 @@ Each type carries:
 
 ---
 
+## Type → disorder template mapping (v1)
+
+The disorder templates in the v1 set declare a `brain_type_anchor` field (see `30-v1.1-schema-extensions.md`) indicating which type a patient with that diagnosis most often resolves to. The reverse mapping — which disorders most often present as each type — is shown below. This is a clinical-pattern table, not a hard rule; the actual type is determined by the patient's cell vector via closest-match.
+
+| Type | Primary disorder anchors | Secondary / overlap |
+|------|--------------------------|---------------------|
+| Type 1 — Anxious-Vigilant | GAD, Panic Disorder, Social Anxiety, PTSD (hyperarousal subtype) | Anxious depression |
+| Type 2 — Anhedonic-Depleted | MDD (melancholic / atypical with anhedonia dominant) | Social Anxiety (reward-deficit dimension), ADHD (motivation dimension) |
+| Type 3 — Ruminative-Internal | GAD (worry-dominant) | MDD ruminative, intellectualized OCD |
+| Type 4 — Compulsive-Locked | OCD | — |
+| Type 5 — Cognitive-Fogged | MDD (cognitive biotype, ~27%), ADHD | Post-COVID cognitive depression |
+| Type 6 — Trauma-Imprinted | PTSD (both hyperarousal and dissociative subtypes) | Complex trauma, somatic-symptom with trauma history |
+
+**Insomnia and Adjustment Disorder** are not anchored to a primary type because their presentations are heterogeneous. The brain type is determined from the patient's actual cell vector, not seeded by the diagnosis. Insomnia driven by hyperarousal often resolves to Type 1; insomnia driven by depression often resolves to Type 2 or Type 5.
+
 ## Authoring and extending types
 
 The six types are authored as a v1 starting set. They should be expected to evolve. The protocol for extending or revising:

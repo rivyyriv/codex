@@ -32,7 +32,7 @@ These hold for every AI call in the system:
 
 **Evidence required.** Every modifier proposal includes the verbatim source text from the transcript or note that justified it. No "AI thinks the patient is anxious" without a quote.
 
-**AI proposes, clinician commits.** Per `07-ai-extraction-spec.md`. Proposals land in a queue. No write to `phi.cell_modifiers` or `phi.subsystem_modifiers` without explicit human approval action.
+**AI proposes, clinician commits — in tiered form.** Per `07-ai-extraction-spec.md`. The principle holds, but the commit gate is tiered by confidence and stakes. Cell modifiers above the auto-approve threshold (default 0.85, tunable per provider) commit immediately at end-of-visit with a reversible audit trail and a post-hoc review surface. Cell modifiers below the threshold queue for explicit pre-commit review. High-stakes actions — prescribing decisions, brain type assignment, dose changes, and any cell modifier flagged as high-impact in the disorder template — always queue regardless of confidence. The threshold is tunable per provider; tuning events are logged to the audit trail.
 
 **Audit trail mandatory.** Every Claude call (request and response) is logged to `phi.ai_call_log` with the prompt, the response, the model version, the temperature, and the resulting clinician action.
 
@@ -442,6 +442,17 @@ The proposal queue surfaces at end of visit. For each proposal:
   - Reject → discarded, optional reason logged
 
 The transcript itself is also visible (collapsible side panel) so the provider can verify the quote in full context.
+
+### Tiered commit: auto-approve threshold and the "AI proposes, clinician commits" principle
+
+The platform-wide principle is "AI proposes, clinician commits." In v1.1 it is implemented in tiered form rather than as a single all-or-nothing review gate. The reconciliation is explicit:
+
+- **Above the auto-approve threshold** (default `0.85`, tunable per provider): the cell modifier commits immediately at end-of-visit. The action is fully audit-logged with the source quote, the AI call ID, and the confidence value. Every auto-approved modifier is reversible from a **post-hoc review surface** that lists all auto-commits from the most recent visit; the provider can revert any commit with one click. From the provider's perspective the commit happens, but the surface to undo it is one click away.
+- **Below the auto-approve threshold**: queue for explicit pre-commit review (the existing Approve / Edit / Reject UI above). Nothing writes to `phi.cell_modifiers` or `phi.subsystem_modifiers` until the provider acts.
+- **High-stakes actions always queue regardless of confidence.** This includes prescribing decisions, brain type assignment, dose changes, and any cell modifier flagged as high-impact on its `DisorderTemplate` entry. Confidence above 0.85 does not bypass the queue for these; the queue is mandatory.
+- **Threshold is tunable per provider.** A risk-averse provider can raise it to 0.95 (almost everything queues); a high-volume provider comfortable with the post-hoc review surface can lower it. Tuning events themselves are audit-logged (timestamp, prior value, new value, actor).
+
+The principle still holds: the clinician owns every write. The tiering reflects that low-confidence proposals and high-stakes actions earn the more expensive pre-commit review, while well-evidenced low-stakes observations earn a cheaper post-hoc one. The audit trail makes the two paths indistinguishable in retrospect.
 
 ---
 

@@ -28,7 +28,7 @@ If life intervenes (it will) and the pace drops, double the calendar. The work i
 | 3 — Frontend foundation | 6-8 | React app, brain map renderer, patient detail page | UI renders BrainMapPayload from backend |
 | 4 — Visit flow | 9-11 | Treatment fit, prescribing, predicted layer, retest comparison | Full canonical visit flow without scribe |
 | 5 — AI scribe | 12-14 | Audio capture, Whisper, Claude extraction, proposal queue | Working scribe end-to-end |
-| 6 — Polish + content | 15-17 | MDD, GAD templates, drug coverage authoring, patient-facing intake | Production-ready for friendly pilot |
+| 6 — Polish + content | 15-17 | Clinical review of 8 AI-drafted templates, dose-band drug coverage, supplements + brain types + undifferentiated path, scribe partial-salvage UI, auto-approve tuning | Production-ready for friendly pilot |
 | 7 — Pilot | 18+ | Onboard 1-3 psychiatrists, iterate from feedback | Real-world validation |
 
 Total to friendly pilot: ~17 weeks (4 months) of build, then pilot is open-ended. The actual launch trigger is "build done + first willing provider lined up," which can happen earlier or later than week 17 depending on pilot recruitment in parallel.
@@ -200,24 +200,29 @@ Total to friendly pilot: ~17 weeks (4 months) of build, then pilot is open-ended
 
 ## Phase 6 — Polish + content (Weeks 15-17)
 
-**Goal**: ready for pilot. More disorders, more drugs, patient-facing intake mini-app.
+**Goal**: ready for pilot. Clinical review of the expanded disorder set, dose-banded drug coverage, supplements alongside drugs, brain types layer, undifferentiated patient flow, scribe partial-salvage and auto-approve tuning, patient-facing intake mini-app.
 
-### Week 15: MDD and GAD templates + instruments
+### Week 15: clinical review of AI-drafted templates + dose-band drug coverage
 
-- Author MDD canonical template (~50 cells across mood/anhedonia/cognitive/vegetative subsystems).
-- Author GAD canonical template (~40 cells).
-- PHQ-9, GAD-7, MADRS elicitation maps and intake routes.
-- Test composition: a patient with MDD+GAD should have correctly composed deltas.
+- Walk a clinical reviewer through the 8 AI-drafted disorder templates (`22`–`29`: MDD, GAD, Panic Disorder, Social Anxiety, PTSD, ADHD, Insomnia, Adjustment Disorder). Capture corrections in versioned template diffs; nothing ships unreviewed.
+- Apply subtype_overrides per `30-v1.1-schema-extensions.md` (PTSD dissociative; MDD melancholic / atypical).
+- Finalize drug coverage authoring with discrete dose bands (low / medium / high) for ~10 agents: sertraline, fluoxetine, escitalopram, venlafaxine, duloxetine, bupropion, lamotrigine, aripiprazole, clonidine, NAC. One TreatmentCoverage row per agent×band.
+- PHQ-9, GAD-7, MADRS, and the additional instruments tied to the expanded set, elicitation maps and intake routes.
+- Composition tests across the new templates.
 
-### Week 16: more drug coverage + patient-facing intake
+### Week 16: supplements + brain types + undifferentiated path + patient-facing intake
 
-- Author 7 more agents: venlafaxine, duloxetine, bupropion, lamotrigine, aripiprazole, clonidine, NAC.
+- Treatment fit table: render supplements alongside drugs, ranked together, with evidence-tier badges (A / B / C). One unified ranking surface.
+- Brain types layer (`20-brain-types.md`): assignment flow from intake signals, 6-archetype display on patient detail, and the **lifestyle + supplements recommendations** panel driven by the assigned type. Brain type is a stable trait, not a drug-ranking input.
+- Undifferentiated patient flow: "No diagnosis yet — assess only" intake option (`16-frontend-ux.md`). Patient progresses through assessment without a `template_ref`; provider assigns one later, or keeps the patient in assessment-only mode.
 - Patient-facing intake mini-app at `/intake/:token`. Token-scoped auth, mobile-first responsive, single instrument per session.
 - Provider-side: "send pre-visit link" generates and emails the token (Resend or AWS SES).
 
-### Week 17: pre-pilot QA
+### Week 17: scribe partial-salvage, auto-approve tuning, pre-pilot QA
 
-- Layer-3 patient-facing summary generator (Pattern 1 from `18-structured-ai.md`). Forbidden-term checks.
+- Scribe partial-salvage UI: when transcription or extraction fails on a span, commit the surviving segments and render the gap inline with timestamped markers (`[gap 12:04–14:30 — transcription unavailable]`). Provider can manually fill or accept the gap.
+- Auto-approve threshold tuning surface: per-provider slider/setting for the confidence threshold (default 0.85). Tuning events are logged. High-stakes actions always queue regardless of threshold (see `18-structured-ai.md`).
+- Layer-3 patient-facing summary generator (Pattern 2 from `18-structured-ai.md`). Drafted by AI; **provider reviews and edits before sending**. Forbidden-term checks remain enforced.
 - Audit timeline UI in patient settings.
 - Browser testing (Chrome, Safari, Firefox).
 - Mobile device testing for patient-facing intake.
@@ -247,13 +252,19 @@ The pilot phase is open-ended. The launch trigger to consider v2 work is: ~10+ p
 Before declaring v1 done and starting pilot:
 
 - [ ] Healthy baseline template populated.
-- [ ] OCD, MDD, GAD disorder templates populated.
-- [ ] 10 drug coverage profiles populated with source citations.
-- [ ] Y-BOCS, PHQ-9, GAD-7, MADRS instruments operational end-to-end.
+- [ ] All 9 disorder templates populated and clinically reviewed (OCD, MDD, GAD, Panic Disorder, Social Anxiety, PTSD, ADHD, Insomnia, Adjustment Disorder).
+- [ ] 10 drug coverage profiles populated with source citations, in discrete dose bands (low / med / high).
+- [ ] Supplements integrated into the treatment fit table alongside drugs, with A/B/C evidence-tier badges.
+- [ ] Brain types layer implemented: 6 archetypes, assignment flow, lifestyle + supplements recommendations panel.
+- [ ] Undifferentiated patient flow works end-to-end (intake without `template_ref`, later assignment).
+- [ ] Y-BOCS, PHQ-9, GAD-7, MADRS and the instruments for the expanded disorder set operational end-to-end.
 - [ ] Brain map renders correctly across 5+ patient scenarios.
 - [ ] Treatment fit table shows mechanism reasoning at point of decision.
 - [ ] Predicted post-treatment overlay works.
-- [ ] AI scribe captures audio, transcribes, extracts proposals, queues for review.
+- [ ] AI scribe captures audio, transcribes, extracts proposals, tiered review queue.
+- [ ] Auto-approve at 0.85 confidence works (tunable per provider; high-stakes actions always queue); tuning events logged.
+- [ ] Scribe partial-salvage failure mode works (surviving segments commit; timestamped gap markers).
+- [ ] Patient-facing summary is AI-drafted and provider-reviewed before sending.
 - [ ] Proposal review UI: approve / edit / reject all functional, with audit log entries.
 - [ ] Follow-up retest comparison works.
 - [ ] RLS policies on every PHI table; tested with two clinician users not seeing each other's patients.
@@ -290,7 +301,7 @@ Things you might be tempted to add but should resist in v1:
 
 - **EHR integration.** Capital and certification cost. The architecture supports it; building it is a v2 decision.
 - **Public API as developer product.** No external consumers yet; defer the developer portal work.
-- **DifferentialDistance ranking.** Needs more disorder templates than 3.
+- **DifferentialDistance ranking.** Even with 9 v1 templates the calibration data isn't yet there; revisit post-pilot.
 - **Mobile native app.** Browser-responsive is fine for v1.
 - **Multi-clinic / enterprise auth.** Single-clinic deployment for pilot; multi-tenant in v2.
 - **Real-time scribe transcript display during visit.** Post-visit batch processing is much simpler and gets 80% of the value.

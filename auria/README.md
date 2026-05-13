@@ -1,6 +1,8 @@
-# Receptor Intelligence — Brain Mapping Framework + Platform Master Design
+# Auria — Brain Mapping Framework + Platform Master Design
 
 A schema, protocol, engineering spec, and master product design for representing psychiatric disorders, individual patient profiles, and pharmacological treatments as machine-queryable cell-level deltas across brain regions and neurotransmitter systems — and the buildable platform and API that surface this to clinicians.
+
+Auria is the product name across all surfaces — UI, marketing, the patient summary, the brain-type narrative, and the methodology bundle (`00`–`31`). The folder name (`receptor-intelligence/`) is a filesystem artifact preserved for repo history; it does not appear in any patient- or clinician-facing context.
 
 ---
 
@@ -68,8 +70,20 @@ Three things in one bundle:
 | **17** | **`17-backend-stack.md`** | **Node + Fastify + Supabase implementation, full Postgres DDL** |
 | **18** | **`18-structured-ai.md`** | **AI scribe pipeline, Claude integration, prompt templates** |
 | **19** | **`19-v1-roadmap.md`** | **Solo part-time week-by-week plan with Claude as coding partner** |
+| **20** | **`20-brain-types.md`** | **Six research-anchored brain-type archetypes — patient identity layer above the cell registry** |
+| **21** | **`21-ux-north-star.md`** | **UX guiding principles, 11-step visit cycle, visual direction (clinical-warm, stylized anatomical, Inter + Fraunces)** |
+| **22** | **`22-mdd-template.md`** | **MDD disorder template (AI-drafted, ~48 cells, pending clinical review)** |
+| **23** | **`23-gad-template.md`** | **GAD disorder template (AI-drafted, ~47 cells, pending clinical review)** |
+| **24** | **`24-panic-disorder-template.md`** | **Panic disorder template (AI-drafted, ~48 cells, pending clinical review)** |
+| **25** | **`25-social-anxiety-template.md`** | **Social anxiety disorder template (AI-drafted, ~46 cells, pending clinical review)** |
+| **26** | **`26-ptsd-template.md`** | **PTSD disorder template with dissociative subtype (AI-drafted, ~51 cells, pending clinical review)** |
+| **27** | **`27-adhd-template.md`** | **ADHD disorder template (AI-drafted, ~47 cells, pending clinical review)** |
+| **28** | **`28-insomnia-template.md`** | **Insomnia disorder template (AI-drafted, ~42 cells, pending clinical review)** |
+| **29** | **`29-adjustment-disorder-template.md`** | **Adjustment Disorder template (AI-drafted, ~32 cells, pending clinical review)** |
+| **30** | **`30-v1.1-schema-extensions.md`** | **v1.1 schema extensions — sleep/circadian vocabulary, subtype_overrides, brain_type_anchor** |
+| **31** | **`31-pending-decisions.md`** | **Compliance posture, patient consent, pilot exit criteria, authoring order, threshold tuning protocol — proposed answers awaiting confirmation** |
 
-Files `14`–`19` are the master design built atop `00`–`13`. Where they conflict, `14`–`19` are correct because they have all decisions resolved.
+Files `14`–`19` are the master design built atop `00`–`13`. Files `20`–`30` are v1.1 additions discovered while authoring the expanded disorder set and brain-type layer. Where files conflict, the higher-numbered file is correct.
 
 ## Confirmed product decisions
 
@@ -123,7 +137,9 @@ Not an MVP. A real product a psychiatrist can run their practice on:
 - Audit trail viewer
 - Patient-facing summary (post-visit, plain language)
 - Patient-facing intake mini-app
-- 3 disorder templates (OCD, MDD, GAD), 10 first-line drug coverage profiles
+- 9 disorder templates (OCD, MDD, GAD, Panic, Social Anxiety, PTSD, ADHD, Insomnia, Adjustment Disorder), 10 first-line drug coverage profiles with dose bands, ~8 supplements with evidence-tier badges
+- Brain type assignment (6 archetypes) with lifestyle / therapy / supplement recommendations panel
+- Undifferentiated-patient path ("No diagnosis yet" intake option)
 
 ## How to start building
 
@@ -138,7 +154,8 @@ If you're at week 0 of the roadmap:
 
 - **Schema v3** is current core (in `01-schema-v3.md`).
 - **Schema v3.1** adds predicted/observed and FHIR/full-body extensions in `15-schema-extensions.md`. Backward-compatible.
-- **Master design v1** is in `14`–`19`.
+- **Schema v3.2** adds sleep/circadian vocabulary, subtype_overrides, and brain_type_anchor in `30-v1.1-schema-extensions.md`. Backward-compatible.
+- **Master design v1** is in `14`–`19`, extended by `20`–`30`.
 - The architecture supports future EHR integration and SaMD clearance as additive upgrades but those are not the v1 plan.
 
 ---

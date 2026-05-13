@@ -27,6 +27,8 @@ The frontend is one of three deliverables in v1: backend (`17-backend-stack.md`)
 
 The whole stack is solo-friendly and free at v1 traffic levels.
 
+> **Note on visual approach (post-spec decision).** The v1 visual has shifted from a raw hex grid to a stylized anatomical brain illustration. The hex-grid hierarchy described in this file is retained as the **underlying data model** — region → cell → delta — but the renderer composites the anatomical illustration on top of the hex-grid data layer. Brain type is also used as a connective visual thread across screens. Visual specifics (mood, typography Inter + Fraunces, color/palette, anatomical asset direction) live in `21-ux-north-star.md`; this file continues to specify the data shape, interaction model, and layer system.
+
 ## Architecture
 
 ```
@@ -112,7 +114,7 @@ Visual: dense, information-rich. Practitioners triage from this screen. No empty
 Multi-step modal:
 
 1. **Demographics** — name, DOB, sex at birth, preferred pronouns, MRN if available.
-2. **Initial assessment context** — chief complaint (free text), provisional diagnosis selection from dropdown of active disorder templates (OCD, MDD, GAD in v1) *or* "No diagnosis yet — assess only" for undifferentiated patients, severity sense ("subclinical / mild / moderate / severe" — sets initial severity bucket per `01-schema-v3.md`; not required if "No diagnosis yet" is selected).
+2. **Initial assessment context** — chief complaint (free text), provisional diagnosis selection from dropdown of active disorder templates (v1: OCD, MDD, GAD, Panic Disorder, Social Anxiety, PTSD, ADHD, Insomnia, Adjustment Disorder) *or* "No diagnosis yet — assess only" for undifferentiated patients, severity sense ("subclinical / mild / moderate / severe" — sets initial severity bucket per `01-schema-v3.md`; not required if "No diagnosis yet" is selected).
 3. **Initial questionnaire** — pick which instrument to administer. Defaults based on provisional diagnosis; if "No diagnosis yet," provider chooses from the full instrument list (Y-BOCS, PHQ-9, GAD-7, MADRS) — typically PHQ-9 or GAD-7 as a broad screen. Provider can administer in-office on tablet OR send a secure pre-visit link to the patient's phone.
 4. **Confirm** — review summary, create patient.
 
@@ -136,42 +138,59 @@ The screen the clinician spends most time on. Multiple panels arranged for at-a-
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ [Patient name]  [DOB]  [MRN]              [⚙ Settings]      │
-│ Active disorders: OCD (severe, confirmed)                   │
-│ Active regimen: Sertraline 50mg (12 days)                   │
+│ [Patient name]  [DOB]  [MRN]   [Type 3 · Ruminative-Internal]│
+│ Active disorders: OCD (severe, confirmed)   [⚙ Settings]    │
+│ Active regimen: Sertraline (medium band, 12 days)           │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
 │   ┌──────────────────────────┐  ┌─────────────────────────┐ │
 │   │                          │  │ Subsystem heatmap       │ │
 │   │   BRAIN MAP              │  │  D ▮▮▮▮▮▮▮ +2.4         │ │
-│   │   (hex grid, color =     │  │  F ▮▮▮▮▮ +1.8           │ │
-│   │    delta from baseline)  │  │  H ▮▮▮ +0.9             │ │
-│   │                          │  │  T ▮ +0.2               │ │
-│   │   Layers:                │  │                         │ │
-│   │   ☑ Effective state      │  │ Residual gap            │ │
-│   │   ☐ Disorder only        │  │  OFC 5HT2A: -1.5        │ │
-│   │   ☐ Treatment coverage   │  │  Caud D2: +1.8          │ │
-│   │   ☑ Predicted post-Rx    │  │  vS D2: +0.6            │ │
-│   │                          │  │  ...                    │ │
+│   │   (anatomical illus.     │  │  F ▮▮▮▮▮ +1.8           │ │
+│   │    over hex-grid data;   │  │  H ▮▮▮ +0.9             │ │
+│   │    color = delta from    │  │  T ▮ +0.2               │ │
+│   │    baseline)             │  │                         │ │
+│   │                          │  │ Residual gap            │ │
+│   │   Layers:                │  │  OFC 5HT2A: -1.5        │ │
+│   │   ☑ Effective state      │  │  Caud D2: +1.8          │ │
+│   │   ☐ Disorder only        │  │  vS D2: +0.6            │ │
+│   │   ☐ Treatment coverage   │  │  ...                    │ │
+│   │   ☑ Predicted post-Rx    │  │                         │ │
 │   └──────────────────────────┘  └─────────────────────────┘ │
 │                                                              │
 │   ┌─────────────────────────────────────────────────────┐   │
 │   │ Treatment fit (mechanism overlap with residual)     │   │
+│   │  Kind │ Agent              │ Evid │ Fit             │   │
 │   │ ─────────────────────────────────────────────────── │   │
-│   │ Sertraline 50mg          ████████████░░░  78%      │   │
+│   │  Drug │ Sertraline (med)   │  A   │ ████████ 78%   │   │
 │   │   Targets: OFC 5HT2A, dlPFC 5HT2C, ...              │   │
 │   │   [ Prescribe ▸ ]                                   │   │
 │   │ ─────────────────────────────────────────────────── │   │
-│   │ Aripiprazole 5mg         ████████░░░░░░░  62%      │   │
+│   │  Drug │ Aripiprazole (low) │  A   │ ███████  62%   │   │
 │   │   Targets: vS D2, Putamen DA tone (OCD+TS-rel)      │   │
 │   │   [ Prescribe ▸ ]                                   │   │
 │   │ ─────────────────────────────────────────────────── │   │
+│   │  Supp │ NAC                │  B   │ █████    48%   │   │
+│   │   Targets: glutamate/cortico-striatal               │   │
+│   │ ─────────────────────────────────────────────────── │   │
+│   │  Supp │ Inositol           │  C   │ ███      31%   │   │
 │   │ ...                                                 │   │
+│   └─────────────────────────────────────────────────────┘   │
+│                                                              │
+│   ┌─────────────────────────────────────────────────────┐   │
+│   │ Recommendations (type-driven, from Type 3)          │   │
+│   │ ─────────────────────────────────────────────────── │   │
+│   │ Lifestyle: morning light, structured rumination     │   │
+│   │   window, aerobic ≥3×/wk                            │   │
+│   │ Therapy:  CBT w/ rumination-focused module; MBCT    │   │
+│   │ Supplements (type-driven):  Omega-3, NAC            │   │
 │   └─────────────────────────────────────────────────────┘   │
 │                                                              │
 │   [+ New questionnaire]   [+ Note]   [▶ Start visit]        │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+The treatment-fit table now interleaves drugs and supplements in a single ranked list. Each row carries a **Kind** column (Drug / Supp) and an **Evidence-tier badge** (A / B / C) — supplements share the schema and ranking with drugs, but do not modify the brain-type-driven recommendations panel below. Brain type is surfaced as a chip in the patient header (stable trait, assigned once; see `20-brain-types.md`) and drives the Recommendations panel for lifestyle, therapy modality, and type-specific supplements. Brain type does **not** modify drug ranking.
 
 Notes on this layout:
 
@@ -190,15 +209,25 @@ In-visit panels:
 
 - **Scribe panel** — record/pause/end controls plus a recording-state indicator (red dot, elapsed time). Audio is captured via MediaRecorder, chunked-uploaded to the backend continuously. At end of visit, the transcript is generated and proposals are extracted (Pattern 1 in `18-structured-ai.md`).
 - **Notes panel** — provider types observations during the conversation. Textarea. Notes get fed alongside the transcript into modifier extraction.
-- **Modifier proposals panel** — appears at end of visit once extraction completes. Each proposal shows the verbatim transcript quote, subsystem/cell, magnitude, confidence. Provider approves / edits / rejects each one. Approved modifiers write through and the brain map updates live. Manual modifier entry is also available for things the scribe missed (autocomplete by region/target, delta input, evidence text required per `07-ai-extraction-spec.md`).
+- **Modifier proposals panel** — appears at end of visit once extraction completes. Each proposal shows the verbatim transcript quote, subsystem/cell, magnitude, confidence. End-of-visit handling is **threshold-gated**: proposals at confidence ≥ **0.85** auto-commit (the threshold is tunable per provider in settings) and write through immediately; auto-approved entries are flagged distinctly in the audit log (separate icon / "auto-approved" reason field) so they remain reviewable after the fact. Lower-confidence proposals land in a **review queue** where the provider approves / edits / rejects each one before they take effect. Approved modifiers write through and the brain map updates live. Manual modifier entry is also available for things the scribe missed (autocomplete by region/target, delta input, evidence text required per `07-ai-extraction-spec.md`).
+- **Scribe failure mode (partial salvage)** — if the audio capture drops out, the upload chunk fails, or transcription returns a low-confidence window, the transcript renders the affected span as a **timestamped grey-block gap marker** (e.g., `▓ 12:04–12:31 audio gap ▓`). Surviving audio either side is kept. Each gap marker is clickable: clicking opens an inline editor so the provider can either type in what was said, or hit a mic button and dictate the missing span into that slot. Modifier extraction re-runs over the patched transcript before the proposals panel finalizes.
 - **Prescribing dialog** — when "Prescribe ▸" is clicked on a treatment row:
-  1. Confirm agent + dose (provider can adjust dose; predicted layer recomputes live).
+  1. Confirm agent + **dose band** — a three-position picker for **low / medium / high**, populated from the drug's coverage profile (see `04-drug-coverage-profile.md`). Free-form mg entry is removed in v1; each band carries its own coverage vector. Switching the band recomputes the predicted post-Rx brain map live in the side-by-side comparison.
   2. Show predicted brain map alongside current.
   3. Confirm prescribing date and expected evaluation date (defaults to +6 weeks).
   4. Optional notes.
-  5. Confirm → backend creates `TreatmentPrediction` record (frozen snapshot per `15-schema-extensions.md`), updates regimen, returns updated state.
+  5. Confirm → backend creates `TreatmentPrediction` record (frozen snapshot per `15-schema-extensions.md`, capturing the selected band), updates regimen, returns updated state.
 
-After ending the visit (button: "End visit") the encounter is sealed, audit log captures all changes, and a Layer-3 patient-facing summary is generated.
+After ending the visit (button: "End visit") the encounter is sealed, audit log captures all changes, and a Layer-3 patient-facing summary is generated (see Patient summary spec below).
+
+#### Patient summary (post-visit)
+
+After "End visit", the platform **auto-drafts** a patient-facing summary that the provider reviews and edits before sending.
+
+- **Spine.** The opening paragraph is the **brain type identity statement** (e.g., "Your pattern most closely matches a Ruminative-Internal type — a brain that tends to loop on internally-generated worry…"). This is the connective thread the patient anchors to.
+- **Prescription block.** Includes the prescribed drug **name and selected dose band** (rendered as a patient-friendly label, e.g., "Sertraline, starting at a medium dose"), expected evaluation date, and what to expect in the first weeks.
+- **Type-driven supplement recommendations.** Pulled from the Recommendations panel for the patient's brain type — surfaced as suggestions, with the same evidence-tier framing patients can understand (no A/B/C jargon).
+- **Provider review.** The draft opens in an editable view; the provider can rewrite any section. Nothing is sent until the provider hits "Send". Edits are captured in the audit log.
 
 ### 6. Follow-up retest
 

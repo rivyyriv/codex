@@ -1,6 +1,6 @@
 # 13 — API Endpoint Derivation
 
-The suggested REST surface for the Receptor Intelligence runtime, derived from the seven typed payloads in `05-visualization-api-payloads.md` and the data shapes in `01-schema-v3.md` and `02-cell-registry-spec.md`.
+The suggested REST surface for the Auria runtime, derived from the seven typed payloads in `05-visualization-api-payloads.md` and the data shapes in `01-schema-v3.md` and `02-cell-registry-spec.md`.
 
 This is a starting sketch, not a fixed contract. The payload contracts in `05` are the stable interface; transport (REST vs GraphQL vs RPC) is a choice that doesn't change what's computed, only how it's requested.
 

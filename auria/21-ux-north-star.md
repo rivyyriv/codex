@@ -101,6 +101,28 @@ These are the rules every screen and interaction must hold to.
 
 **Determinism.** Same patient state + same registry version = same screens. Reproducible, debuggable, defensible.
 
+**Visuals are the product.** Every screen should look like something a serious person would be proud to use. The brain map, the type chip, the treatment fit table, the patient summary — none of these are utilitarian. They are the trust contract with the provider and the dignity contract with the patient. Budget time and care for visual design proportional to clinical engineering. A clinically rigorous platform that looks like a 2010 EHR will not be trusted, used, or remembered. Stunning, intentional, restrained visual design is a non-negotiable v1 requirement — not a polish phase.
+
+## Visual direction (v1)
+
+The four anchoring decisions for v1 visual design. These constrain every screen, asset, and component decision downstream.
+
+**Mood: clinical-warm.** Professional, calming, slightly soft. Think Headspace meets a high-end medical device. Whites and soft neutrals as the base, one or two warm accent colors (likely a saturated amber and a cool teal, see landing.html palette). Patients feel safe; providers feel trusted. Avoid: harsh contrasts, saturated dashboard-aesthetic colors, cold institutional whites.
+
+**Brain map: stylized anatomical.** A simplified, illustrated brain — top-down and sagittal views available, region as colored zone, color encoding magnitude and direction of dysregulation. Recognizable as a brain at a glance; immediately interpretable for patients and providers alike. The hex-grid abstraction documented in earlier specs (`16-frontend-ux.md`) is retired as the v1 visual approach but retained as the underlying data model — the renderer can swap between anatomical and abstract views without changing data shape. Trades extensibility (full-body in v2 will need more design work per system) for clinical resonance now.
+
+**Typography: Inter + Fraunces.** Inter for all UI (data tables, controls, dense provider screens, body copy) — clean, neutral, ergonomic. Fraunces for hero moments (patient summary headlines, brain type identity, marketing). Editorial weight where the patient lives, mechanical clarity where the provider works. Pair already in use in `landing.html` — brand continuity from marketing surface into the product.
+
+**Hero strategy: all three surfaces, brain type as connective thread.** No single hero screen. The provider workspace, the brain map, and the patient summary each receive equal craft investment. The brain type — its color, its iconography, its descriptor — is the visual signature that ties them together. A patient identified as Type 3 sees a consistent color/icon for Type 3 on the provider's chip, on their own summary, and (eventually) on any marketing comparing types. This is the brand's most defensible visual asset.
+
+### Component-level implications
+
+- **Type chips:** distinctive shape (capsule), distinctive color per type, restrained icon. Visible on the patient detail screen header and at the top of the patient summary.
+- **Brain map:** stylized anatomical illustration as the base layer, color overlay for delta. Multi-layer toggles (effective / disorder-only / treatment / residual / predicted) render as visual filters, not separate views.
+- **Treatment fit table:** typographic hierarchy (Inter at varied weights) over heavy borders or shading. Evidence-tier badges as small, restrained chips. Drug vs. supplement distinguished by icon + subtle background tint, not by separate sections.
+- **Patient summary:** magazine-grade typesetting. Fraunces for headings and the type identity statement, Inter for body and recommendations. Restrained color (mostly black on warm white with one accent), generous whitespace. The artifact the patient might print and bring to a therapist.
+- **Color palette:** anchored to the existing `landing.html` palette (`--bg: #0a0e1a`, `--accent: #f5b86b`, `--teal: #6dd3c0`, `--rose: #ef6f7d`, `--azure: #7aa8ff`). Light-mode variants derived from this palette. One color per brain type (six total) drawn from a harmonious palette anchored to these accents.
+
 ---
 
 Last updated: 2026-05-12

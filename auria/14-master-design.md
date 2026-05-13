@@ -1,6 +1,6 @@
 # 14 — Master Design
 
-The single orchestrating document for the Receptor Intelligence platform and API. Ties the framework methodology (`00`–`13`) to a concrete buildable product with all architectural decisions resolved.
+The single orchestrating document for the Auria platform and API. Ties the framework methodology (`00`–`13`) to a concrete buildable product with all architectural decisions resolved.
 
 Read this first if orienting to "what are we shipping?"
 
@@ -34,12 +34,18 @@ Same engine eventually extends from brain to full body: HPA-axis, immune, gut, e
 | Anatomy in v1 | Brain only |
 | Build resources | Solo, part-time, Claude as primary coding partner |
 | Stack | React + Vite + TypeScript + Tailwind + shadcn/ui (frontend); Node + Fastify + TypeScript + Supabase (backend); Anthropic API + Whisper for AI |
-| Brain visualization | SVG hex-grid by region; color encoding for delta; multi-layer stacking |
-| AI scribe | **In v1.** Audio capture → Whisper transcription → Claude structured extraction → clinician-reviewed proposal queue |
+| Brain visualization | Stylized anatomical brain rendering with color-encoded regions and multi-layer stacking; hex-grid retained as the underlying data model. See `21-ux-north-star.md` for the visual spec. |
+| AI scribe | **In v1.** Audio capture → Whisper transcription → Claude structured extraction → tiered review queue (auto-approve above 0.85 confidence with reversible audit trail; below-threshold and high-stakes proposals queue for explicit review) |
+| Scribe failure mode | Partial salvage on transcription/extraction failure — surviving segments commit with timestamped gap markers for the irrecoverable spans |
 | Schema source-of-truth | Supabase Postgres |
 | PHI separation | Single Supabase project, separate `phi.*` and `registry.*` schemas + strict RLS |
 | Auth | Supabase Auth, MFA required for clinician/admin roles |
 | Cascading template updates | Pin-by-default |
+| Brain types layer | Stable patient trait; 6 authored archetypes (`20-brain-types.md`). Drives lifestyle and supplement recommendations; does not rank drugs. |
+| Supplements | Ranked alongside drugs in the same treatment fit table, distinguished by evidence-tier badges (A / B / C). |
+| Drug coverage granularity | Discrete dose bands (low / medium / high) per agent. |
+| Undifferentiated patient path | "No diagnosis yet — assess only" option at intake (`16-frontend-ux.md`); patient flows through assessment without a template_ref until one is assigned. |
+| Patient summary | AI-drafted post-visit; provider reviews and edits before sending. |
 
 ## v1 scope — the full capable platform
 
@@ -59,7 +65,7 @@ What ships in v1:
 - Follow-up retest comparison (predicted vs. observed deltas).
 - Audit trail viewer.
 - Layer-3 patient-facing summary (post-visit, plain language, no specific drug names).
-- 3 disorder templates: OCD, MDD, GAD.
+- 9 disorder templates: OCD, MDD, GAD, Panic Disorder, Social Anxiety, PTSD, ADHD, Insomnia, Adjustment Disorder. OCD is the clinically authored reference; the other 8 are AI-drafted (files `22`–`29`) pending clinical review before pilot.
 - ~10 first-line drug coverage profiles (sertraline, fluoxetine, escitalopram, venlafaxine, duloxetine, bupropion, lamotrigine, aripiprazole, clonidine, NAC).
 - Healthy baseline template populated.
 
@@ -69,7 +75,6 @@ Out of v1 (genuinely deferred):
 - EHR integration.
 - Public API as a separate product.
 - DifferentialDistance ranking (needs more disorder templates).
-- ASRS / ADHD support.
 - Confidence intervals on predictions.
 - Individual-tuned predictions (requires accumulated outcome data).
 - Three-way comorbid composition.
@@ -80,7 +85,7 @@ Out of v1 (genuinely deferred):
 
 Post-v1, based on pilot signal:
 
-- More disorder templates (ADHD, PTSD, BD) and instruments (ASRS, PCL-5).
+- Additional disorder templates beyond the v1 nine (e.g., BD, OUD) and further instruments.
 - More drug coverage agents (15-25 total).
 - DifferentialDistance ranking.
 - PCP simplified mode.
@@ -97,6 +102,15 @@ The architecture is built with good engineering practices that happen to also su
 **Future SaMD clearance.** The architecture has audit trails, versioned reasoning, evidence chains on every cell, deterministic computation, and a clean separation between AI-generated suggestions and clinician-committed data. These are good engineering practices for a clinical tool regardless of regulatory ambition. They also happen to be what an FDA submission would require, so a future clearance pursuit doesn't need a technology rewrite — just QMS work, clinical validation studies, and a Medical Director, which are capital and team concerns.
 
 Neither upgrade is the headline plan. The headline plan is to build the platform. These notes exist so the architecture isn't accidentally painted into a corner.
+
+## Recent v1.1 additions
+
+A set of late-stage v1 expansions (still inside the v1 envelope, hence "v1.1") that are reflected in this document and the roadmap:
+
+- **Brain types layer** — `20-brain-types.md`. 6 authored archetypes, stable patient trait, drives lifestyle and supplements (not drug ranking).
+- **Expanded disorder set** — `22`–`29`. Eight AI-drafted templates beyond OCD (MDD, GAD, Panic, Social Anxiety, PTSD, ADHD, Insomnia, Adjustment Disorder), pending clinical review.
+- **UX north star** — `21-ux-north-star.md`. Locks the stylized anatomical brain as the visual direction; hex-grid is retained as the data model only.
+- **Schema extensions for v1.1** — `30-v1.1-schema-extensions.md`. Adds sleep/circadian vocabulary (SCN, Hypothalamus, LH, Pineal regions; Orexin, Melatonin systems), the `subtype_overrides` pattern (used for PTSD dissociative subtype and MDD melancholic/atypical), and a `brain_type_anchor` field on `DisorderTemplate`.
 
 ## Document map
 
